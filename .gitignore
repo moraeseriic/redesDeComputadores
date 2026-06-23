@@ -223,7 +223,7 @@ _estado_*.json
 # Analise de captura (gerada em runtime)
 capturas/analise.json
 
-# Documentos auxiliares (mantidos fora do versionamento por opcao do grupo)
+# Documentos auxiliares — escrever manualmente
 docs/
 
 # Capturas binarias geradas em runtime (recriadas por capturar.py)

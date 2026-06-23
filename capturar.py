@@ -1,18 +1,8 @@
-"""
-capturar.py - Captura e analise de trafego (item 3 da entrega).
-
-Dois modos:
-  - padrao:        sobe servidores + sensores, captura e analisa (uso isolado)
-        python capturar.py
-  - --existente:   captura o trafego que JA esta fluindo (usado pelo run_all.py
-                   e pelo botao do dashboard, com os servidores ja no ar)
-        python capturar.py --existente
-
-Em ambos: salva capturas/http_vs_coap.pcapng, grava capturas/analise.json
-(consumido pelo dashboard) e imprime um resumo no terminal.
-
-Requisitos: Wireshark instalado com Npcap (suporte a captura em loopback).
-"""
+# Captura tráfego HTTP e CoAP com tshark e gera análise comparativa.
+# Requer Wireshark (com Npcap) instalado.
+#
+#   python capturar.py             # sobe servidores, captura e analisa
+#   python capturar.py --existente # captura trafego ja em andamento
 
 import argparse
 import json

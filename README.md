@@ -5,11 +5,6 @@ Aplicação que **simula sensores IoT** enviando leituras de temperatura e
 umidade por **dois protocolos diferentes** — HTTP e CoAP — para comparar
 funcionamento, formato das mensagens e leveza de cada um.
 
-> Documentos complementares (conceitos, limitações e roteiro da demonstração)
-> estão em [`docs/`](docs/):
-> - [`docs/CONCEITOS.md`](docs/CONCEITOS.md) — explicação teórica ligada à prática
-> - [`docs/LIMITACOES.md`](docs/LIMITACOES.md) — limitações do experimento
-> - [`docs/DEMONSTRACAO.md`](docs/DEMONSTRACAO.md) — passo a passo + captura no Wireshark
 
 ---
 

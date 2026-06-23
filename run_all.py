@@ -1,18 +1,8 @@
-"""
-run_all.py - Sobe TUDO com um unico comando.
-
-Inicia, em processos separados:
-  1. servidor HTTP (FastAPI, tambem serve o dashboard)
-  2. servidor CoAP (aiocoap)
-  3. cliente/sensor HTTP (envios continuos)
-  4. cliente/sensor CoAP (envios continuos)
-
-Depois abre o dashboard no navegador. Encerre tudo com Ctrl+C.
-
-    python run_all.py
-    python run_all.py --intervalo 1      # mais rapido
-    python run_all.py --sem-navegador    # nao abrir o browser
-"""
+# Orquestrador — sobe os dois servidores, os dois sensores e abre o dashboard.
+#
+#   python run_all.py
+#   python run_all.py --intervalo 1      # sensores mais rapidos
+#   python run_all.py --sem-navegador
 
 import argparse
 import importlib.util
@@ -29,10 +19,6 @@ URL = "http://127.0.0.1:8000/"
 
 
 def garantir_dependencias():
-    """Se faltar alguma dependencia neste Python, instala via requirements.txt.
-
-    Assim 'python run_all.py' funciona mesmo sem ter ativado a venv antes.
-    """
     necessarios = ("fastapi", "uvicorn", "httpx", "aiocoap")
     faltando = [m for m in necessarios if importlib.util.find_spec(m) is None]
     if not faltando:
@@ -48,7 +34,6 @@ from core import estado  # importado depois de garantir deps
 
 
 def lancar(args_lista):
-    """Inicia um processo filho rodando 'python <args_lista>'."""
     return subprocess.Popen([PY, *args_lista], cwd=DIR)
 
 
