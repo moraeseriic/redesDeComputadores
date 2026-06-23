@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Estado compartilhado do dashboard (gerado em runtime)
+_estado_*.json
+
+# Analise de captura (gerada em runtime)
+capturas/analise.json
+
+# Documentos auxiliares (mantidos fora do versionamento por opcao do grupo)
+docs/
+
+# Capturas binarias geradas em runtime (recriadas por capturar.py)
+capturas/*.pcapng
