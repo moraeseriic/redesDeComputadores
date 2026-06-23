@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTTP vs CoAP — Painel IoT | Grupo 8</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #06090f;
+    --surface: #0e141f;
+    --surface-2: #141c2b;
+    --border: #1f2a3c;
+    --text: #e8eef7;
+    --muted: #8595ab;
+    --faint: #5a6b82;
+    --http: #3b82f6;
+    --http-soft: #1d4ed8;
+    --coap: #22c55e;
+    --coap-soft: #15803d;
+    --payload: #64748b;
+    --warn: #f97316;
+    --radius: 16px;
+    --mono: 'Fira Code', ui-monospace, monospace;
+    --sans: 'Fira Sans', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,.10), transparent 60%),
+      radial-gradient(1000px 500px at 0% 110%, rgba(34,197,94,.08), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+    min-height: 100dvh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 56px; }
+
+  /* Header */
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--http), var(--coap));
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .brand h1 { font-size: 1.15rem; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  .brand p { margin: 0; font-size: .8rem; color: var(--muted); }
+  .status { display: flex; align-items: center; gap: 10px; font-size: .82rem; color: var(--muted); font-family: var(--mono); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--coap); box-shadow: 0 0 10px var(--coap); }
+  .dot.off { background: var(--faint); box-shadow: none; }
+
+  /* Comparison hero */
+  .hero {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; margin-bottom: 22px;
+  }
+  .hero-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .hero-top h2 { margin: 0; font-size: .95rem; font-weight: 600; color: var(--text); }
+  .hero-top h2 span { color: var(--muted); font-weight: 400; }
+  .savings { font-family: var(--mono); font-weight: 700; font-size: 1.05rem; color: var(--coap); }
+  .savings small { color: var(--muted); font-weight: 400; font-size: .72rem; }
+
+  .bars { display: flex; flex-direction: column; gap: 14px; }
+  .barrow { display: grid; grid-template-columns: 70px 1fr 92px; align-items: center; gap: 14px; }
+  .barrow .label { font-family: var(--mono); font-size: .82rem; font-weight: 600; }
+  .barrow .label small { display: block; color: var(--faint); font-weight: 400; font-size: .68rem; }
+  .track { height: 30px; border-radius: 8px; background: #0a1018; overflow: hidden; display: flex; border: 1px solid var(--border); }
+  .seg { height: 100%; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+  .seg.payload { background: repeating-linear-gradient(45deg, var(--payload), var(--payload) 6px, #55657c 6px, #55657c 12px); }
+  .seg.over-http { background: linear-gradient(90deg, var(--http-soft), var(--http)); }
+  .seg.over-coap { background: linear-gradient(90deg, var(--coap-soft), var(--coap)); }
+  .barrow .total { font-family: var(--mono); font-size: .9rem; text-align: right; font-weight: 600; }
+  .barrow .total small { color: var(--faint); font-weight: 400; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: .74rem; color: var(--muted); font-family: var(--mono); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  /* Protocol cards */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } .barrow { grid-template-columns: 56px 1fr 78px; gap: 10px; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px; position: relative; overflow: hidden;
+  }
+  .card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; }
+  .card.http::before { background: var(--http); }
+  .card.coap::before { background: var(--coap); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .card-head .name { display: flex; align-items: center; gap: 10px; }
+  .card-head .name b { font-size: 1.05rem; font-weight: 700; letter-spacing: .3px; }
+  .ico { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; }
+  .card.http .ico { background: rgba(59,130,246,.14); color: var(--http); }
+  .card.coap .ico { background: rgba(34,197,94,.14); color: var(--coap); }
+  .badge { font-family: var(--mono); font-size: .68rem; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+
+  .readings { display: flex; gap: 12px; margin-bottom: 16px; }
+  .reading { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .reading .k { font-size: .72rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .reading .v { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .reading .v u { text-decoration: none; font-size: .8rem; color: var(--faint); margin-left: 2px; }
+
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; font-size: .8rem; }
+  .meta div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
+  .meta span:first-child { color: var(--muted); }
+  .meta span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .empty { color: var(--faint); font-style: italic; font-size: .85rem; padding: 8px 0; }
+
+  footer { margin-top: 26px; color: var(--faint); font-size: .76rem; text-align: center; line-height: 1.7; }
+  footer code { font-family: var(--mono); color: var(--muted); }
+
+  /* Captura */
+  .btn {
+    font-family: var(--mono); font-size: .78rem; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 14px; cursor: pointer;
+    transition: background .2s, border-color .2s;
+  }
+  .btn:hover { background: #1b2738; border-color: var(--http); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn:focus-visible { outline: 2px solid var(--http); outline-offset: 2px; }
+  .captbl { width: 100%; border-collapse: collapse; font-size: .84rem; margin-bottom: 14px; }
+  .captbl th { text-align: right; color: var(--muted); font-weight: 500; font-size: .72rem; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .captbl th:first-child { text-align: left; }
+  .captbl td { text-align: right; padding: 9px 10px; font-family: var(--mono); font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--border); }
+  .captbl td:first-child { text-align: left; font-family: var(--sans); }
+  .captbl td small { color: var(--faint); }
+  .captbl .row-http b { color: var(--http); }
+  .captbl .row-coap b { color: var(--coap); }
+  .cap-facts { display: flex; gap: 14px 22px; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
+  .cap-facts .fact b { color: var(--text); font-family: var(--mono); }
+  .cap-facts .fact.pcap code { font-family: var(--mono); color: var(--coap); font-size: .76rem; }
+
+  @media (prefers-reduced-motion: reduce) { .seg { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12h4l2-6 4 12 2-6h4"/>
+        </svg>
+      </div>
+      <div>
+        <h1>HTTP vs CoAP — Painel IoT</h1>
+        <p>Grupo 8 · Redes de Computadores · sensores simulados em tempo real</p>
+      </div>
+    </div>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="status-text">conectando…</span>
+    </div>
+  </header>
+
+  <!-- Comparacao de leveza -->
+  <section class="hero" aria-label="Comparacao de tamanho de mensagem">
+    <div class="hero-top">
+      <h2>Tamanho da mensagem <span>· mesmo payload JSON, protocolos diferentes</span></h2>
+      <div class="savings"><span id="savings">—</span> <small>menor no CoAP</small></div>
+    </div>
+    <div class="bars">
+      <div class="barrow">
+        <div class="label">HTTP<small>sobre TCP</small></div>
+        <div class="track" role="img" aria-label="Composicao da mensagem HTTP">
+          <div class="seg payload" id="http-payload"></div>
+          <div class="seg over-http" id="http-over"></div>
+        </div>
+        <div class="total"><span id="http-total">—</span><small> B</small></div>
+      </div>
+      <div class="barrow">
+        <div class="label">CoAP<small>sobre UDP</small></div>
+        <div class="track" role="img" aria-label="Composicao da mensagem CoAP">
+          <div class="seg payload" id="coap-payload"></div>
+          <div class="seg over-coap" id="coap-over"></div>
+        </div>
+        <div class="total"><span id="coap-total">—</span><small> B</small></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:repeating-linear-gradient(45deg,#64748b,#64748b 4px,#55657c 4px,#55657c 8px)"></i>Payload (dado do sensor)</span>
+      <span><i style="background:var(--http)"></i>Overhead HTTP</span>
+      <span><i style="background:var(--coap)"></i>Overhead CoAP</span>
+    </div>
+  </section>
+
+  <!-- Cartoes dos protocolos -->
+  <div class="grid">
+    <!-- HTTP -->
+    <article class="card http">
+      <div class="card-head">
+        <div class="name">
+          <span class="ico" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          </span>
+          <b>HTTP</b>
+        </div>
+        <span class="badge">TCP · :8000</span>
+      </div>
+      <div id="http-body">
+        <div class="empty">Aguardando dados — rode <code>python http_client.py</code></div>
+      </div>
+    </article>
+
+    <!-- CoAP -->
+    <article class="card coap">
+      <div class="card-head">
+        <div class="name">
+          <span class="ico" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a4 4 0 0 1 4-4 5 5 0 0 1 9.5 1.5A3.5 3.5 0 0 1 18 17H8a3 3 0 0 1-3-4.5z"/></svg>
+          </span>
+          <b>CoAP</b>
+        </div>
+        <span class="badge">UDP · :5683</span>
+      </div>
+      <div id="coap-body">
+        <div class="empty">Aguardando dados — rode <code>python coap_client.py</code></div>
+      </div>
+    </article>
+  </div>
+
+  <!-- Captura de trafego (Wireshark) -->
+  <section class="hero" aria-label="Captura de tráfego" style="margin-top:18px">
+    <div class="hero-top">
+      <h2>Captura de tráfego <span>· Wireshark/tshark na interface loopback</span></h2>
+      <button id="btn-cap" class="btn">Capturar agora</button>
+    </div>
+    <div id="cap-status" class="empty">Sem captura ainda.</div>
+    <div id="cap-body" hidden>
+      <table class="captbl">
+        <thead><tr><th>Protocolo</th><th>Pacotes</th><th>Bytes</th><th>Requisições</th><th>Bytes/req</th></tr></thead>
+        <tbody>
+          <tr class="row-http"><td><b>HTTP</b> <small>TCP</small></td><td id="c-http-pk">—</td><td id="c-http-by">—</td><td id="c-http-rq">—</td><td id="c-http-br">—</td></tr>
+          <tr class="row-coap"><td><b>CoAP</b> <small>UDP</small></td><td id="c-coap-pk">—</td><td id="c-coap-by">—</td><td id="c-coap-rq">—</td><td id="c-coap-br">—</td></tr>
+        </tbody>
+      </table>
+      <div class="cap-facts">
+        <span class="fact"><b id="c-razao">—</b> mais bytes no HTTP</span>
+        <span class="fact">Handshake TCP: <b id="c-syn">—</b> SYN <small>· CoAP/UDP: 0</small></span>
+        <span class="fact">CoAP: 1 datagrama = <b id="c-dg">—</b> B</span>
+        <span class="fact pcap">arquivo: <code id="c-pcap">—</code></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Atualiza a cada 1s via <code>GET /api/stats</code> · dados gravados pelos servidores HTTP e CoAP no estado compartilhado.<br/>
+    Overhead estimado a partir dos cabeçalhos típicos de cada protocolo (ver <code>tamanhos.py</code>). HTTP ainda paga o handshake TCP, não contado aqui.
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SVG_TEMP = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V5a2 2 0 0 0-4 0v9.76a4 4 0 1 0 4 0z"/></svg>';
+const SVG_HUM = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6 6 6 10a6 6 0 0 1-12 0c0-4 6-10 6-10z"/></svg>';
+
+function tempoRel(ts) {
+  if (!ts) return "—";
+  const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (s < 2) return "agora";
+  if (s < 60) return `há ${s}s`;
+  return `há ${Math.round(s / 60)}min`;
+}
+
+function cardBody(e) {
+  if (!e || !e.leitura) {
+    return null;
+  }
+  const l = e.leitura;
+  const temp = (l.temperatura ?? "—");
+  const hum = (l.umidade ?? "—");
+  return `
+    <div class="readings">
+      <div class="reading">
+        <div class="k">${SVG_TEMP} Temperatura</div>
+        <div class="v">${temp}<u>°C</u></div>
+      </div>
+      <div class="reading">
+        <div class="k">${SVG_HUM} Umidade</div>
+        <div class="v">${hum}<u>%</u></div>
+      </div>
+    </div>
+    <div class="meta">
+      <div><span>Mensagens</span><span>${e.mensagens ?? 0}</span></div>
+      <div><span>Tam. msg</span><span>${e.total_bytes ?? "—"} B</span></div>
+      <div><span>Payload</span><span>${e.payload_bytes ?? "—"} B</span></div>
+      <div><span>Sensor</span><span>${l.id ?? "—"}</span></div>
+      <div><span>Última</span><span>${tempoRel(e.atualizado_em)}</span></div>
+      <div><span>Recebido</span><span>OK</span></div>
+    </div>`;
+}
+
+function setBar(payloadEl, overEl, totalEl, payload, total, maxTotal) {
+  const over = total - payload;
+  payloadEl.style.width = (100 * payload / maxTotal) + "%";
+  overEl.style.width = (100 * over / maxTotal) + "%";
+  totalEl.textContent = total;
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/stats", { cache: "no-store" });
+    const d = await r.json();
+
+    $("dot").classList.remove("off");
+    $("status-text").textContent = "ao vivo · " + new Date().toLocaleTimeString("pt-BR");
+
+    // Barras de comparacao
+    const c = d.comparacao;
+    const maxTotal = Math.max(c.http_total, c.coap_total);
+    setBar($("http-payload"), $("http-over"), $("http-total"), c.payload, c.http_total, maxTotal);
+    setBar($("coap-payload"), $("coap-over"), $("coap-total"), c.payload, c.coap_total, maxTotal);
+    $("savings").textContent = "−" + c.economia_pct + "%";
+
+    // Cartoes
+    const httpHtml = cardBody(d.http);
+    const coapHtml = cardBody(d.coap);
+    if (httpHtml) $("http-body").innerHTML = httpHtml;
+    if (coapHtml) $("coap-body").innerHTML = coapHtml;
+  } catch (err) {
+    $("dot").classList.add("off");
+    $("status-text").textContent = "sem conexão";
+  }
+}
+
+// ----- Captura de trafego -----
+function renderCaptura(d) {
+  const st = $("cap-status"), body = $("cap-body"), btn = $("btn-cap");
+  if (!d || d.status === "sem") {
+    st.hidden = false; body.hidden = true;
+    st.textContent = "Sem captura ainda. Clique em “Capturar agora” (sensores precisam estar enviando).";
+    btn.disabled = false; btn.textContent = "Capturar agora";
+    return;
+  }
+  if (d.status === "capturando") {
+    st.hidden = false; body.hidden = true;
+    st.textContent = "Capturando tráfego na loopback… (aguarde ~12s)";
+    btn.disabled = true; btn.textContent = "Capturando…";
+    return;
+  }
+  if (d.status === "indisponivel" || d.status === "erro") {
+    st.hidden = false; body.hidden = true;
+    st.textContent = "Captura indisponível: " + (d.msg || "verifique Wireshark/Npcap.");
+    btn.disabled = false; btn.textContent = "Tentar de novo";
+    return;
+  }
+  // pronto
+  st.hidden = true; body.hidden = false;
+  btn.disabled = false; btn.textContent = "Recapturar";
+  const h = d.http, c = d.coap;
+  $("c-http-pk").textContent = h.pacotes; $("c-http-by").textContent = h.bytes;
+  $("c-http-rq").textContent = h.requisicoes; $("c-http-br").textContent = h.bytes_por_req ?? "—";
+  $("c-coap-pk").textContent = c.pacotes; $("c-coap-by").textContent = c.bytes;
+  $("c-coap-rq").textContent = c.requisicoes; $("c-coap-br").textContent = c.bytes_por_req ?? "—";
+  $("c-razao").textContent = d.razao_bytes ? ("~" + d.razao_bytes + "x") : "—";
+  $("c-syn").textContent = d.syn_tcp;
+  $("c-dg").textContent = d.coap_datagrama_bytes ?? "—";
+  $("c-pcap").textContent = d.pcap;
+}
+
+async function tickCaptura() {
+  try {
+    const r = await fetch("/api/captura", { cache: "no-store" });
+    renderCaptura(await r.json());
+  } catch (e) { /* silencioso */ }
+}
+
+$("btn-cap").addEventListener("click", async () => {
+  $("btn-cap").disabled = true;
+  $("btn-cap").textContent = "Iniciando…";
+  try { await fetch("/api/captura/run", { method: "POST" }); } catch (e) {}
+  setTimeout(tickCaptura, 800);
+});
+
+tick();
+tickCaptura();
+setInterval(tick, 1000);
+setInterval(tickCaptura, 2000);
+</script>
+</body>
+</html>
