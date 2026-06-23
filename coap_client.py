@@ -10,13 +10,19 @@ Rodar (servidor CoAP precisa estar no ar):
 
 import argparse
 import asyncio
+import logging
 
 from aiocoap import Context, Message, POST
+from aiocoap.error import NetworkError, RequestTimedOut
 
 from core.sensor import Sensor
 from core.tamanhos import tamanho_coap
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [coap_client] %(levelname)s: %(message)s", datefmt="%H:%M:%S")
+logger = logging.getLogger("coap_client")
+
 URI = "coap://127.0.0.1/sensor"
+_TENTATIVAS = 3
 
 
 async def main(n: int, intervalo: float):
@@ -25,13 +31,22 @@ async def main(n: int, intervalo: float):
     for i in range(n):
         payload = sensor.read_json()
         tam = tamanho_coap(payload)
-        req = Message(code=POST, uri=URI, payload=payload)
-        resp = await protocol.request(req).response
-        print(
-            f"[CoAP] envio {i + 1}/{n} | "
-            f"msg~{tam}B payload={len(payload)}B | "
-            f"resp {resp.code} ({len(resp.payload)}B)"
-        )
+        for tentativa in range(1, _TENTATIVAS + 1):
+            try:
+                req = Message(code=POST, uri=URI, payload=payload)
+                resp = await protocol.request(req).response
+                logger.info(
+                    "envio %d/%d | msg~%dB payload=%dB | resp %s (%dB)",
+                    i + 1, n, tam, len(payload), resp.code, len(resp.payload),
+                )
+                break
+            except (NetworkError, RequestTimedOut) as exc:
+                logger.warning("envio %d/%d | servidor indisponivel (tentativa %d/%d): %s", i + 1, n, tentativa, _TENTATIVAS, exc)
+                if tentativa < _TENTATIVAS:
+                    await asyncio.sleep(1)
+            except Exception as exc:
+                logger.error("envio %d/%d | erro inesperado: %s", i + 1, n, exc)
+                break
         if i < n - 1:
             await asyncio.sleep(intervalo)
 
