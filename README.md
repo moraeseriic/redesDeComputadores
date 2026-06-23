@@ -13,22 +13,39 @@ funcionamento, formato das mensagens e leveza de cada um.
 
 ---
 
-## O que tem aqui
+## Estrutura do projeto
 
-| Arquivo | Papel |
+```
+redesDeComputadores/
+├── core/                   # Módulos compartilhados entre servidores e clientes
+│   ├── sensor.py           #   Sensor virtual (temperatura/umidade)
+│   ├── estado.py           #   Estado entre processos via JSON (IPC simples)
+│   └── tamanhos.py         #   Cálculo de overhead HTTP e CoAP (fonte única)
+├── static/
+│   └── dashboard.html      # Dashboard web em tempo real
+├── http_server.py          # Servidor HTTP (FastAPI, porta 8000)
+├── http_client.py          # Cliente HTTP — simula sensor enviando por HTTP
+├── coap_server.py          # Servidor CoAP (aiocoap, RFC 7252, porta 5683 UDP)
+├── coap_client.py          # Cliente CoAP — simula sensor enviando por CoAP
+├── capturar.py             # Captura e analisa tráfego real (Wireshark/tshark)
+├── comparar.py             # Tabela de overhead sem precisar de servidor
+├── run_all.py              # Orquestrador — sobe tudo com um único comando
+└── requirements.txt        # Dependências Python
+```
+
+| Arquivo/Pasta | Papel |
 |---|---|
-| `run_all.py` | **Sobe tudo com um comando** (2 servidores + 2 sensores + abre o dashboard). |
-| `sensor.py` | Gera leituras simuladas (temperatura/umidade) em JSON. Usado pelos dois clientes. |
-| `http_server.py` | Servidor **HTTP** (FastAPI) — recebe leituras via `POST /sensor`. |
+| `run_all.py` | **Sobe tudo com um comando** (2 servidores + 2 sensores + dashboard). |
+| `core/sensor.py` | Gera leituras simuladas (temperatura/umidade) em JSON. Compartilhado pelos dois clientes. |
+| `core/tamanhos.py` | Fórmulas de overhead de cada protocolo — **fonte única** usada por todo o projeto. |
+| `core/estado.py` | Estado compartilhado entre os processos via arquivos JSON (IPC simples). |
+| `http_server.py` | Servidor **HTTP** (FastAPI) — recebe leituras via `POST /sensor`, serve o dashboard. |
 | `coap_server.py` | Servidor **CoAP** (aiocoap, RFC 7252) — recebe leituras via `POST /sensor` sobre UDP. |
-| `http_client.py` | Cliente que simula o sensor enviando por **HTTP**. |
-| `coap_client.py` | Cliente que simula o sensor enviando por **CoAP**. |
-| `comparar.py` | Calcula e imprime a tabela de tamanho/overhead HTTP vs CoAP (não precisa de servidor). |
-| `capturar.py` | **Captura e analisa o tráfego real** com o tshark (Wireshark) e salva `.pcapng`. |
-| `tamanhos.py` | Fórmulas de overhead de cada protocolo (fonte única usada por todos). |
-| `estado.py` | Estado compartilhado entre os processos (arquivos JSON) para o dashboard. |
+| `http_client.py` | Cliente com retry — simula o sensor enviando por **HTTP**. |
+| `coap_client.py` | Cliente com retry — simula o sensor enviando por **CoAP**. |
+| `comparar.py` | Imprime a tabela de tamanho/overhead HTTP vs CoAP (sem precisar de servidor). |
+| `capturar.py` | **Captura e analisa o tráfego real** com tshark (Wireshark) e salva `.pcapng`. |
 | `static/dashboard.html` | **Dashboard web** em tempo real (servido pelo FastAPI em `/`). |
-| `requirements.txt` | Dependências Python. |
 
 Arquitetura (idêntica nos dois protocolos, **cliente-servidor / requisição-resposta**):
 
