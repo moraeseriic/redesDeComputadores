@@ -16,12 +16,20 @@ Escuta em UDP porta 5683 (porta padrao do CoAP).
 import argparse
 import asyncio
 import json
+import logging
 
 import aiocoap
 import aiocoap.resource as resource
 
 from core import estado
 from core.tamanhos import tamanho_coap
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("coap_server")
 
 _contador = {"posts": 0}
 
@@ -48,7 +56,7 @@ class SensorResource(resource.Resource):
             dados = json.loads(request.payload.decode())
         except Exception:
             dados = {"raw": request.payload.decode(errors="replace")}
-        print(f"[CoAP] POST #{_contador['posts']}: {dados}")
+        logger.info("POST #%d: %s", _contador["posts"], dados)
         # Grava no estado compartilhado para o dashboard mostrar.
         estado.gravar(
             "coap",

@@ -15,6 +15,7 @@ ou:
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -27,7 +28,14 @@ from fastapi.staticfiles import StaticFiles
 from core import estado
 from core.tamanhos import resumo_por_tamanho, tamanho_http
 
-app = FastAPI(title="IoT HTTP Server", version="1.2")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("http_server")
+
+app = FastAPI(title="IoT HTTP Server", version="1.3")
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _STATIC = os.path.join(_DIR, "static")
@@ -46,7 +54,7 @@ async def receber_leitura(request: Request):
     sensor_id = dados.get("id", "desconhecido")
     _ultimas_leituras[sensor_id] = dados
     _contador["posts"] += 1
-    print(f"[HTTP] POST #{_contador['posts']} de {sensor_id}: {dados}")
+    logger.info("POST #%d de %s: %s", _contador["posts"], sensor_id, dados)
     # Grava no estado compartilhado para o dashboard mostrar.
     estado.gravar(
         "http",
@@ -78,22 +86,22 @@ async def health():
 @app.get("/api/stats")
 async def stats():
     """Dados combinados HTTP + CoAP para o dashboard (lidos do estado)."""
-    http_estado = estado.ler("http")
-    coap_estado = estado.ler("coap")
-    # Comparacao usa o tamanho do payload REAL da ultima leitura (HTTP de
-    # preferencia, senao CoAP), para casar com os numeros dos cartoes.
-    # Sem dados ainda: usa 68 B como referencia.
-    if http_estado:
-        n_payload = http_estado["payload_bytes"]
-    elif coap_estado:
-        n_payload = coap_estado["payload_bytes"]
-    else:
+    try:
+        http_estado = estado.ler("http")
+        coap_estado = estado.ler("coap")
         n_payload = 68
-    return {
-        "http": http_estado,
-        "coap": coap_estado,
-        "comparacao": resumo_por_tamanho(n_payload),
-    }
+        if http_estado and http_estado.get("payload_bytes", 0) > 0:
+            n_payload = http_estado["payload_bytes"]
+        elif coap_estado and coap_estado.get("payload_bytes", 0) > 0:
+            n_payload = coap_estado["payload_bytes"]
+        return {
+            "http": http_estado,
+            "coap": coap_estado,
+            "comparacao": resumo_por_tamanho(n_payload),
+        }
+    except Exception as exc:
+        logger.error("Erro em /api/stats: %s", exc)
+        return JSONResponse(status_code=500, content={"erro": str(exc)})
 
 
 @app.get("/api/captura")
