@@ -13,8 +13,8 @@ import asyncio
 
 import httpx
 
-from sensor import Sensor
-from tamanhos import tamanho_http
+from core.sensor import Sensor
+from core.tamanhos import tamanho_http
 
 URL = "http://127.0.0.1:8000/sensor"
 

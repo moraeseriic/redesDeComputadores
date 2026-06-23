@@ -44,7 +44,7 @@ def garantir_dependencias():
 
 
 garantir_dependencias()
-import estado  # importado depois de garantir deps
+from core import estado  # importado depois de garantir deps
 
 
 def lancar(args_lista):

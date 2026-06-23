@@ -13,8 +13,8 @@ import asyncio
 
 from aiocoap import Context, Message, POST
 
-from sensor import Sensor
-from tamanhos import tamanho_coap
+from core.sensor import Sensor
+from core.tamanhos import tamanho_coap
 
 URI = "coap://127.0.0.1/sensor"
 

@@ -7,8 +7,6 @@ script de comparacao e pelo dashboard, para que todos mostrem os mesmos numeros.
 """
 
 # --- HTTP/1.1 (texto, sobre TCP) ---------------------------------------------
-# A requisicao carrega linha de status + cabecalhos ASCII + corpo.
-
 
 def tamanho_http(payload: bytes) -> int:
     """Tamanho estimado de um POST HTTP/1.1 (linha + headers + corpo)."""
@@ -25,7 +23,6 @@ def tamanho_http(payload: bytes) -> int:
 
 
 # --- CoAP (binario, sobre UDP) -----------------------------------------------
-# Cabecalho fixo de 4 bytes + token + options + marcador 0xFF + payload.
 CABECALHO_FIXO = 4          # versao, tipo, token len, codigo, message-id
 TOKEN = 2                   # tamanho de token usado por padrao
 OPT_URI_PATH = 1 + len("sensor")   # option header + nome do recurso
@@ -38,12 +35,7 @@ def tamanho_coap(payload: bytes) -> int:
 
 
 def resumo_por_tamanho(n_payload: int) -> dict:
-    """Igual a resumo(), mas a partir do tamanho do payload (em bytes).
-
-    As formulas de overhead so dependem do tamanho do payload, nao do conteudo,
-    entao isto permite calcular a comparacao usando o tamanho da ultima leitura
-    real recebida pelo dashboard.
-    """
+    """Igual a resumo(), mas a partir do tamanho do payload (em bytes)."""
     return resumo(b"x" * n_payload)
 
 

@@ -20,8 +20,8 @@ import json
 import aiocoap
 import aiocoap.resource as resource
 
-import estado
-from tamanhos import tamanho_coap
+from core import estado
+from core.tamanhos import tamanho_coap
 
 _contador = {"posts": 0}
 

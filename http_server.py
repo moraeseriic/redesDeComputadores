@@ -24,8 +24,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import estado
-from tamanhos import resumo_por_tamanho, tamanho_http
+from core import estado
+from core.tamanhos import resumo_por_tamanho, tamanho_http
 
 app = FastAPI(title="IoT HTTP Server", version="1.2")
 

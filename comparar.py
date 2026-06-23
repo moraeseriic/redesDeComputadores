@@ -8,8 +8,8 @@ overhead de cada protocolo, imprimindo uma tabela. Util para a parte
     python comparar.py
 """
 
-from sensor import Sensor
-from tamanhos import resumo
+from core.sensor import Sensor
+from core.tamanhos import resumo
 
 
 def main():

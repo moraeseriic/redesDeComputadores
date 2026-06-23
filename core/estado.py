@@ -13,7 +13,8 @@ import json
 import os
 import time
 
-_DIR = os.path.dirname(os.path.abspath(__file__))
+# Aponta para a raiz do projeto (parent de core/)
+_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _caminho(protocolo: str) -> str:

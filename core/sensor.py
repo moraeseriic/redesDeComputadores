@@ -17,7 +17,6 @@ class Sensor:
 
     def __init__(self, sensor_id: str = "sensor-01"):
         self.sensor_id = sensor_id
-        # Estado inicial "realista"
         self._temp = 25.0
         self._hum = 60.0
 
@@ -25,7 +24,6 @@ class Sensor:
         """Retorna uma leitura nova (passeio aleatorio suave)."""
         self._temp = round(self._temp + random.uniform(-0.5, 0.5), 2)
         self._hum = round(self._hum + random.uniform(-1.0, 1.0), 2)
-        # Limita a faixas plausiveis
         self._temp = max(15.0, min(40.0, self._temp))
         self._hum = max(20.0, min(95.0, self._hum))
         return {
@@ -41,7 +39,6 @@ class Sensor:
 
 
 if __name__ == "__main__":
-    # Teste rapido: imprime 3 leituras
     s = Sensor()
     for _ in range(3):
         print(s.read_json().decode())

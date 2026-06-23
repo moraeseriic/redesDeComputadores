@@ -152,7 +152,7 @@ def capturar(com_infra: bool) -> int:
     infra = []
     try:
         if com_infra:
-            import estado as _estado
+            from core import estado as _estado
             _estado.limpar()
             print("[1/3] subindo servidores HTTP e CoAP...")
             infra.append(subprocess.Popen([PY, "http_server.py"], cwd=DIR,
