@@ -1,0 +1,8 @@
+# Dependencias do experimento HTTP vs CoAP
+# Servidor e cliente HTTP
+fastapi==0.115.6
+uvicorn==0.34.0
+httpx==0.28.1
+
+# Servidor e cliente CoAP
+aiocoap==0.4.12
