@@ -137,7 +137,30 @@
   .cap-facts .fact b { color: var(--text); font-family: var(--mono); }
   .cap-facts .fact.pcap code { font-family: var(--mono); color: var(--coap); font-size: .76rem; }
 
-  @media (prefers-reduced-motion: reduce) { .seg { transition: none; } }
+  /* Grafico interativo */
+  .chart-card { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-top: 18px; }
+  .chart-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .chart-head h2 { margin: 0; font-size: .95rem; font-weight: 600; }
+  .chart-head h2 span { color: var(--muted); font-weight: 400; }
+  .segmented { display: inline-flex; background: #0a1018; border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 2px; }
+  .segmented button { font-family: var(--mono); font-size: .74rem; color: var(--muted); background: transparent; border: 0; border-radius: 8px; padding: 8px 13px; min-height: 36px; cursor: pointer; transition: color .2s, background .2s; white-space: nowrap; }
+  .segmented button:hover { color: var(--text); }
+  .segmented button[aria-pressed="true"] { color: var(--text); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+  .segmented button:focus-visible { outline: 2px solid var(--http); outline-offset: 2px; }
+  .chart-sub { font-size: .8rem; color: var(--muted); margin: 4px 0 16px; min-height: 1.1em; }
+  .chart-wrap { position: relative; }
+  .chart-svg { width: 100%; height: 240px; display: block; }
+  .chart-svg text { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .chart-svg.fade { animation: chFade .26s ease-out; }
+  @keyframes chFade { from { opacity: .25; } to { opacity: 1; } }
+  .chart-legend { display: flex; gap: 8px 20px; flex-wrap: wrap; margin-top: 14px; font-size: .77rem; font-family: var(--mono); color: var(--muted); }
+  .chart-legend .li { display: inline-flex; align-items: center; gap: 8px; }
+  .chart-legend .swatch { width: 22px; height: 0; border-top-width: 3px; border-radius: 2px; }
+  .chart-legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .chart-empty { color: var(--faint); font-style: italic; font-size: .85rem; padding: 34px 0; text-align: center; }
+  .chart-tip { position: absolute; pointer-events: none; background: #0a1018; border: 1px solid var(--border); border-radius: 9px; padding: 8px 11px; font-family: var(--mono); font-size: .72rem; line-height: 1.5; color: var(--text); white-space: nowrap; transform: translate(-50%, calc(-100% - 12px)); opacity: 0; transition: opacity .12s; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+
+  @media (prefers-reduced-motion: reduce) { .seg, .chart-svg.fade { transition: none; animation: none; } }
 </style>
 </head>
 <body>
@@ -225,6 +248,25 @@
       </div>
     </article>
   </div>
+
+  <!-- Grafico interativo -->
+  <section class="chart-card" aria-label="Gráfico comparativo">
+    <div class="chart-head">
+      <h2>Visualização <span>· escolha o que comparar</span></h2>
+      <div class="segmented" role="group" aria-label="Modo do gráfico">
+        <button id="m-bytes" type="button" aria-pressed="true">Bytes acumulados</button>
+        <button id="m-sensor" type="button" aria-pressed="false">Temp / Umidade</button>
+        <button id="m-cap" type="button" aria-pressed="false">Bytes / req</button>
+      </div>
+    </div>
+    <p class="chart-sub" id="chart-sub">—</p>
+    <div class="chart-wrap">
+      <svg class="chart-svg" id="chart-svg" role="img" aria-label="Gráfico comparativo HTTP vs CoAP"></svg>
+      <div class="chart-tip" id="chart-tip"></div>
+      <div class="chart-empty" id="chart-empty" hidden>Aguardando dados dos sensores…</div>
+    </div>
+    <div class="chart-legend" id="chart-legend"></div>
+  </section>
 
   <!-- Captura de trafego (Wireshark) -->
   <section class="hero" aria-label="Captura de tráfego" style="margin-top:18px">
@@ -324,6 +366,9 @@ async function tick() {
     const coapHtml = cardBody(d.coap);
     if (httpHtml) $("http-body").innerHTML = httpHtml;
     if (coapHtml) $("coap-body").innerHTML = coapHtml;
+
+    pushHistory(d);
+    if (chartMode !== "cap") renderChart();
   } catch (err) {
     $("dot").classList.add("off");
     $("status-text").textContent = "sem conexão";
@@ -333,6 +378,8 @@ async function tick() {
 // ----- Captura de trafego -----
 function renderCaptura(d) {
   const st = $("cap-status"), body = $("cap-body"), btn = $("btn-cap");
+  capData = d;
+  if (chartMode === "cap") renderChart();
   if (!d || d.status === "sem") {
     st.hidden = false; body.hidden = true;
     st.textContent = "Sem captura ainda. Clique em “Capturar agora” (sensores precisam estar enviando).";
@@ -378,6 +425,212 @@ $("btn-cap").addEventListener("click", async () => {
   try { await fetch("/api/captura/run", { method: "POST" }); } catch (e) {}
   setTimeout(tickCaptura, 800);
 });
+
+// ===== Grafico interativo (SVG puro, sem lib) =====
+const SVGNS = "http://www.w3.org/2000/svg";
+const HIST_MAX = 90;                         // ~90s de janela
+const hist = { t: [], hB: [], cB: [], hT: [], cT: [], hU: [], cU: [] };
+let chartMode = "bytes";
+let capData = null;
+let hoverGuide = null, hoverCtx = null;
+
+const _css = getComputedStyle(document.documentElement);
+const C = {
+  http: (_css.getPropertyValue("--http").trim() || "#3b82f6"),
+  coap: (_css.getPropertyValue("--coap").trim() || "#22c55e"),
+  border: (_css.getPropertyValue("--border").trim() || "#1f2a3c"),
+  faint: (_css.getPropertyValue("--faint").trim() || "#5a6b82"),
+  muted: (_css.getPropertyValue("--muted").trim() || "#8595ab"),
+  text: (_css.getPropertyValue("--text").trim() || "#e8eef7"),
+  surface2: (_css.getPropertyValue("--surface-2").trim() || "#141c2b"),
+};
+
+const numOr = (v) => (typeof v === "number" ? v : (v == null ? null : parseFloat(v)));
+const lastNonNull = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
+const fmtPct = (v) => (v == null ? "—" : v + "%");
+function fmtBytes(v) {
+  if (v == null) return "—";
+  if (v >= 1000) return (v / 1000).toFixed(v >= 10000 ? 0 : 1) + " kB";
+  return Math.round(v) + " B";
+}
+function svgEl(tag, attrs, text) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function relLabel(t) { const s = Math.round((Date.now() - t) / 1000); return s <= 1 ? "agora" : "-" + s + "s"; }
+
+function pushHistory(d) {
+  const h = d.http, c = d.coap;
+  const hb = (h && h.mensagens && h.total_bytes) ? h.mensagens * h.total_bytes : null;
+  const cb = (c && c.mensagens && c.total_bytes) ? c.mensagens * c.total_bytes : null;
+  if (hb == null && cb == null) return;
+  hist.t.push(Date.now());
+  hist.hB.push(hb); hist.cB.push(cb);
+  hist.hT.push(h && h.leitura ? numOr(h.leitura.temperatura) : null);
+  hist.cT.push(c && c.leitura ? numOr(c.leitura.temperatura) : null);
+  hist.hU.push(h && h.leitura ? numOr(h.leitura.umidade) : null);
+  hist.cU.push(c && c.leitura ? numOr(c.leitura.umidade) : null);
+  for (const k in hist) if (hist[k].length > HIST_MAX) hist[k].shift();
+}
+
+function setMode(m) {
+  chartMode = m;
+  for (const [id, key] of [["m-bytes", "bytes"], ["m-sensor", "sensor"], ["m-cap", "cap"]])
+    $(id).setAttribute("aria-pressed", String(key === m));
+  const svg = $("chart-svg");
+  svg.classList.remove("fade"); void svg.offsetWidth; svg.classList.add("fade");
+  renderChart();
+}
+
+function showEmpty(msg) {
+  $("chart-svg").style.display = "none";
+  $("chart-tip").style.opacity = 0;
+  const e = $("chart-empty"); e.hidden = false; e.textContent = msg;
+  $("chart-legend").innerHTML = "";
+}
+function showChart() { $("chart-svg").style.display = "block"; $("chart-empty").hidden = true; }
+
+function renderChart() {
+  if (chartMode === "cap") return renderBars();
+  if (chartMode === "sensor")
+    return renderLines({
+      sub: "Leituras ao vivo dos dois sensores (temperatura em °C). Umidade na legenda.",
+      fmt: (v) => v.toFixed(1) + "°", zeroFloor: false,
+      a: { name: "HTTP", vals: hist.hT, color: C.http, dash: "" },
+      b: { name: "CoAP", vals: hist.cT, color: C.coap, dash: "6 4" },
+      aU: hist.hU, bU: hist.cU,
+    });
+  return renderLines({
+    sub: "Total de bytes no fio, acumulado. Mesmo nº de mensagens — o HTTP dispara muito mais.",
+    fmt: fmtBytes, zeroFloor: true,
+    a: { name: "HTTP", vals: hist.hB, color: C.http, dash: "" },
+    b: { name: "CoAP", vals: hist.cB, color: C.coap, dash: "6 4" },
+  });
+}
+
+function renderLines(o) {
+  $("chart-sub").textContent = o.sub;
+  const n = hist.t.length;
+  if (n < 2) { showEmpty("Aguardando dados dos sensores…"); return; }
+  showChart();
+  const svg = $("chart-svg");
+  const w = svg.clientWidth || 680, h = 240;
+  const padL = 58, padR = 16, padT = 16, padB = 28;
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
+  svg.replaceChildren();
+
+  const all = o.a.vals.concat(o.b.vals).filter((v) => v != null);
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const gap = (hi - lo) * 0.12; lo -= gap; hi += gap;
+  if (o.zeroFloor) lo = Math.min(lo, 0);
+  const X = (i) => padL + (w - padL - padR) * (i / (n - 1));
+  const Y = (v) => padT + (h - padT - padB) * (1 - (v - lo) / (hi - lo));
+
+  for (let g = 0; g <= 4; g++) {
+    const val = lo + (hi - lo) * g / 4, y = Y(val);
+    svg.appendChild(svgEl("line", { x1: padL, y1: y, x2: w - padR, y2: y, stroke: C.border, "stroke-width": 1, opacity: g === 0 ? 0.85 : 0.4 }));
+    svg.appendChild(svgEl("text", { x: padL - 9, y: y + 4, "text-anchor": "end", fill: C.faint, "font-size": 11 }, o.fmt(val)));
+  }
+  for (const i of [0, Math.floor((n - 1) / 2), n - 1]) {
+    svg.appendChild(svgEl("text", { x: X(i), y: h - 8, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle", fill: C.faint, "font-size": 11 }, relLabel(hist.t[i])));
+  }
+  for (const s of [o.a, o.b]) {
+    let dd = "", on = false;
+    for (let i = 0; i < n; i++) {
+      const v = s.vals[i];
+      if (v == null) { on = false; continue; }
+      dd += (on ? " L" : " M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); on = true;
+    }
+    if (dd) svg.appendChild(svgEl("path", { d: dd, fill: "none", stroke: s.color, "stroke-width": 2.4, "stroke-dasharray": s.dash, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    const li = lastNonNull(s.vals);
+    if (li != null) { let idx = s.vals.length - 1; while (s.vals[idx] == null) idx--; svg.appendChild(svgEl("circle", { cx: X(idx), cy: Y(li), r: 3.6, fill: s.color })); }
+  }
+
+  hoverGuide = svgEl("line", { y1: padT, y2: h - padB, stroke: C.muted, "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0 });
+  svg.appendChild(hoverGuide);
+  hoverCtx = { o, n, X, Y, times: hist.t.slice() };
+  svg.onmousemove = onHover; svg.onmouseleave = hideHover;
+
+  const cuA = lastNonNull(o.a.vals), cuB = lastNonNull(o.b.vals);
+  let html = legendItem(o.a.color, o.a.dash, o.a.name, cuA == null ? "—" : o.fmt(cuA))
+    + legendItem(o.b.color, o.b.dash, o.b.name, cuB == null ? "—" : o.fmt(cuB));
+  if (o.aU) html += `<span class="li" style="color:${C.faint}">umidade · HTTP ${fmtPct(lastNonNull(o.aU))} · CoAP ${fmtPct(lastNonNull(o.bU))}</span>`;
+  $("chart-legend").innerHTML = html;
+}
+
+function legendItem(color, dash, name, val) {
+  return `<span class="li"><span class="swatch" style="border-top-color:${color};border-top-style:${dash ? "dashed" : "solid"}"></span>${name} <b>${val}</b></span>`;
+}
+
+function onHover(ev) {
+  if (!hoverCtx) return;
+  const { o, n, X, Y, times } = hoverCtx;
+  const r = ev.currentTarget.getBoundingClientRect();
+  const px = ev.clientX - r.left;
+  let bi = 0, bd = Infinity;
+  for (let i = 0; i < n; i++) { const dx = Math.abs(X(i) - px); if (dx < bd) { bd = dx; bi = i; } }
+  const gx = X(bi), va = o.a.vals[bi], vb = o.b.vals[bi];
+  hoverGuide.setAttribute("x1", gx); hoverGuide.setAttribute("x2", gx); hoverGuide.setAttribute("opacity", 0.7);
+  const tip = $("chart-tip");
+  tip.innerHTML = `<b style="color:${C.faint}">${relLabel(times[bi])}</b><br>`
+    + `<span style="color:${o.a.color}">${o.a.name}</span> ${va == null ? "—" : o.fmt(va)}<br>`
+    + `<span style="color:${o.b.color}">${o.b.name}</span> ${vb == null ? "—" : o.fmt(vb)}`;
+  const ys = [va != null ? Y(va) : Infinity, vb != null ? Y(vb) : Infinity];
+  const yTop = Math.min(...ys);
+  tip.style.left = gx + "px";
+  tip.style.top = (isFinite(yTop) ? yTop : 60) + "px";
+  tip.style.opacity = 1;
+}
+function hideHover() { $("chart-tip").style.opacity = 0; if (hoverGuide) hoverGuide.setAttribute("opacity", 0); }
+
+function renderBars() {
+  $("chart-sub").textContent = "Bytes por requisição medidos no Wireshark (loopback).";
+  const d = capData;
+  if (!d || d.status !== "pronto") {
+    showEmpty(d && d.status === "capturando" ? "Capturando tráfego…" : "Sem captura ainda — use o botão “Recapturar”.");
+    return;
+  }
+  showChart();
+  const svg = $("chart-svg");
+  const w = svg.clientWidth || 680, h = 240;
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
+  svg.replaceChildren();
+  svg.onmousemove = null; svg.onmouseleave = null; $("chart-tip").style.opacity = 0;
+
+  const items = [
+    { name: "HTTP", sub: "TCP", val: numOr(d.http.bytes_por_req), color: C.http },
+    { name: "CoAP", sub: "UDP", val: numOr(d.coap.bytes_por_req), color: C.coap },
+  ].filter((x) => x.val != null).sort((a, b) => b.val - a.val);
+  if (!items.length) { showEmpty("Sem requisições na captura."); return; }
+
+  const max = items[0].val;
+  const padL = 76, padR = 92, padT = 26, padB = 16;
+  const bw = w - padL - padR;
+  const rowH = (h - padT - padB) / items.length;
+  items.forEach((it, i) => {
+    const cy = padT + rowH * i + rowH / 2, len = Math.max(bw * (it.val / max), 3);
+    svg.appendChild(svgEl("text", { x: padL - 14, y: cy + 1, "text-anchor": "end", fill: C.text, "font-size": 14, "font-weight": 600 }, it.name));
+    svg.appendChild(svgEl("text", { x: padL - 14, y: cy + 17, "text-anchor": "end", fill: C.faint, "font-size": 10 }, it.sub));
+    svg.appendChild(svgEl("rect", { x: padL, y: cy - 16, width: bw, height: 32, rx: 7, fill: C.surface2 }));
+    svg.appendChild(svgEl("rect", { x: padL, y: cy - 16, width: len, height: 32, rx: 7, fill: it.color }));
+    svg.appendChild(svgEl("text", { x: padL + len + 11, y: cy + 5, fill: C.text, "font-size": 13, "font-weight": 600 }, it.val + " B/req"));
+  });
+
+  const ratio = items.length === 2 && items[1].val ? (items[0].val / items[1].val) : null;
+  $("chart-legend").innerHTML = ratio
+    ? `<span class="li" style="color:${C.muted}">HTTP gasta <b>~${ratio.toFixed(1)}x</b> mais bytes por requisição que o CoAP</span>`
+    : "";
+}
+
+$("m-bytes").addEventListener("click", () => setMode("bytes"));
+$("m-sensor").addEventListener("click", () => setMode("sensor"));
+$("m-cap").addEventListener("click", () => setMode("cap"));
+let _resizeT;
+window.addEventListener("resize", () => { clearTimeout(_resizeT); _resizeT = setTimeout(renderChart, 150); });
+renderChart();
 
 tick();
 tickCaptura();
