@@ -118,8 +118,13 @@ def imprimir(a: dict) -> None:
     print("=" * 60)
 
 
-def capturar(com_infra: bool) -> int:
+def capturar(com_infra: bool, reiniciar_http: bool = False) -> int:
     """Executa a captura. Se com_infra=True, sobe servidores+sensores antes.
+
+    Se reiniciar_http=True (e com_infra=False), dispara um sensor HTTP novo
+    dentro da janela de captura: a conexao TCP fresca faz o 3-way handshake
+    no fio, entao o SYN aparece na analise (sem isso, a conexao keep-alive ja
+    estava aberta antes da captura e syn_tcp fica 0).
 
     Devolve codigo de saida (0 = ok).
     """
@@ -163,6 +168,10 @@ def capturar(com_infra: bool) -> int:
                            cwd=DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run([PY, "coap_client.py", "--n", "6", "--intervalo", "0.4"],
                            cwd=DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif reiniciar_http:
+            print("[+] reiniciando sensor HTTP (conexao nova p/ capturar o SYN)...")
+            subprocess.run([PY, "http_client.py", "--n", "6", "--intervalo", "0.4"],
+                           cwd=DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         _, err = cap.communicate(timeout=DURACAO + 10)
         if not os.path.isfile(PCAP):
@@ -190,8 +199,10 @@ def main():
     p = argparse.ArgumentParser(description="Captura e analisa trafego HTTP vs CoAP.")
     p.add_argument("--existente", action="store_true",
                    help="captura o trafego ja em andamento (nao sobe servidores)")
+    p.add_argument("--reiniciar-http", action="store_true",
+                   help="dispara um sensor HTTP novo durante a captura (mostra o SYN)")
     args = p.parse_args()
-    sys.exit(capturar(com_infra=not args.existente))
+    sys.exit(capturar(com_infra=not args.existente, reiniciar_http=args.reiniciar_http))
 
 
 if __name__ == "__main__":

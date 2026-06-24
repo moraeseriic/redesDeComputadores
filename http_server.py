@@ -96,7 +96,7 @@ async def captura_run():
         if time.time() - atual.get("gerado_em", 0) < 40:
             return {"status": "ja_rodando"}
     subprocess.Popen(
-        [sys.executable, "capturar.py", "--existente"],
+        [sys.executable, "capturar.py", "--existente", "--reiniciar-http"],
         cwd=_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     return {"status": "iniciado"}
