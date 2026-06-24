@@ -77,8 +77,6 @@ pip install -r requirements.txt
 
 ## Como rodar — **um comando**
 
-> Roteiro completo da demonstração em [`docs/DEMONSTRACAO.md`](docs/DEMONSTRACAO.md).
-
 **Um único comando** sobe os dois servidores (HTTP e CoAP), os dois sensores
 e abre o dashboard no navegador:
 
@@ -120,8 +118,7 @@ python capturar.py
 
 Gera `capturas/http_vs_coap.pcapng` (abra no Wireshark) e mostra, no terminal,
 a hierarquia de protocolos, o handshake TCP e quantos bytes cada protocolo
-gastou para entregar as mesmas leituras. Passo a passo manual (interfaces,
-filtros) em [`docs/DEMONSTRACAO.md`](docs/DEMONSTRACAO.md).
+gastou para entregar as mesmas leituras.
 
 ### Rodar peças isoladas (opcional)
 
@@ -153,4 +150,4 @@ Clientes aceitam `--n` (quantos envios) e `--intervalo` (segundos entre envios).
 Mesmo dado, mesma semântica (POST → resposta de "criado"), mas o CoAP
 transporta a leitura com **uma fração do overhead** e sobre UDP, sem
 handshake de conexão. É isso que torna o CoAP mais adequado a dispositivos
-IoT restritos. Detalhes em [`docs/CONCEITOS.md`](docs/CONCEITOS.md).
+IoT restritos.
